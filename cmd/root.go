@@ -15,9 +15,15 @@
 package cmd
 
 import (
+	"database/sql"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"os"
+	"strings"
+	"time"
 
+	_ "github.com/go-sql-driver/mysql"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -43,9 +49,50 @@ to quickly create a Cobra application.`,
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+	// if err := rootCmd.Execute(); err != nil {
+	// 	fmt.Println(">>>>", err)
+	// 	os.Exit(1)
+	// }
+
+	files, err := ioutil.ReadDir(".")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	con, err := sql.Open("mysql", "root:MyNewPass@tcp(localhost:3317)/ss_03112018")
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer con.Close()
+
+	for _, file := range files {
+		if strings.Contains(file.Name(), ".sql") {
+			content, err := ioutil.ReadFile(file.Name())
+			if err != nil {
+				log.Fatal(err)
+			}
+			fmt.Printf("File %s\n", file.Name())
+			fmt.Println(string(content))
+
+			times := 30
+			var nanoTotal int64
+
+			for i := 0; i < times; i++ {
+				start := time.Now()
+				_, err = con.Query(string(content))
+				if err != nil {
+					fmt.Println("Error en la consulta", err)
+					fmt.Println(err)
+					os.Exit(1)
+				}
+				// timesSum.Ad = (time.Since(start) * time.Millisecond)
+				nanoTotal += time.Since(start).Nanoseconds()
+				fmt.Println(time.Since(start))
+			}
+
+			fmt.Println("Query avg => ", time.Duration(nanoTotal/int64(times))*time.Nanosecond)
+		}
 	}
 }
 
